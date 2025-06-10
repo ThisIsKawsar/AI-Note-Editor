@@ -9,7 +9,7 @@ cd AI-Note-Editor\
 ## 2. Install Dependencies
 ```bash
 composer install
-npm install
+npm install --legacy-peer-deps
 ```
 
 ## 3. Environment Configuration
