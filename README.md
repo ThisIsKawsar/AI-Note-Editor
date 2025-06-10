@@ -33,9 +33,9 @@ GOOGLE_REDIRECT_URI=http://localhost/auth/google/callback
 
 OPENAI_API_KEY=sk-proj-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ```
-Generate the application key:
+## Generate the application key:
 ```bash
-php artisan migrate
+php artisan key:generate
 ```
 ## 4. Database Setup
 ```bash
