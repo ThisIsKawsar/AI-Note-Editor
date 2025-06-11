@@ -1,24 +1,38 @@
+// Editor.jsx
 import React from 'react';
-import { Editor as TinyMCE } from '@tinymce/tinymce-react';
+import ReactQuill from 'react-quill';
+import 'quill/dist/quill.snow.css';
 
-export default function Editor({ value, onChange, placeholder }) {
+const Editor = ({ value, onChange, placeholder }) => {
     return (
-        <TinyMCE
-            apiKey="your-tinymce-api-key"
+        <ReactQuill
             value={value}
-            onEditorChange={onChange}
-            init={{
-                height: 400,
-                menubar: false,
-                plugins: [
-                    'advlist autolink lists link image charmap print preview anchor',
-                    'searchreplace visualblocks code fullscreen',
-                    'insertdatetime media table paste code help wordcount'
+            onChange={onChange}
+            placeholder={placeholder}
+            theme="snow"
+            modules={{
+                toolbar: [
+                    [{ header: [1, 2, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['link', 'image'],
+                    ['clean'], // Remove formatting
                 ],
-                toolbar:
-                    'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist outdent indent | removeformat | help',
-                placeholder: placeholder,
             }}
+            formats={[
+                'header',
+                'bold',
+                'italic',
+                'underline',
+                'strike',
+                'list',
+                'bullet',
+                'link',
+                'image',
+            ]}
+            className="bg-white min-h-[200px]"
         />
     );
-}
+};
+
+export default Editor;
