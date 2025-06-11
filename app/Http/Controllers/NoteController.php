@@ -13,16 +13,16 @@ class NoteController extends Controller
         $notes = auth()->user()->notes()->latest()->get();
         return Inertia::render('Dashboard', ['notes' => $notes]);
     }
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'title' => 'required|string|max:255',
+        'content' => 'required|string',
+    ]);
 
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'required|string',
-        ]);
-
-        return auth()->user()->notes()->create($validated);
-    }
+    $note = auth()->user()->notes()->create($validated);
+    return Inertia::render('NoteEditor', ['note' => $note]); // Render with new note
+}
 
     public function show(Note $note)
     {
