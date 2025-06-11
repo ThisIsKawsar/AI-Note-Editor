@@ -13,6 +13,10 @@ npm install --legacy-peer-deps
 ```
 
 ## 3. Environment Configuration
+Copy .env.example file to .env on the root folder. You can type copy .env.example .env if using command prompt Windows or
+```bash
+cp .env.example .env
+```
 ```bash
 APP_NAME=AiNoteEditor
 APP_ENV=local
