@@ -1,116 +1,154 @@
-import React, { useState, useEffect } from 'react';
-import { Inertia } from '@inertiajs/inertia';
-import { htmlToText } from 'html-to-text';
-import { toast } from 'react-toastify'; // Optional: for notifications
+import React, { useState, useEffect } from "react";
+import { Inertia } from "@inertiajs/inertia";
+import { htmlToText } from "html-to-text";
+import { toast } from "react-toastify";
+import Editor from "../Pages/Components/Editor";
 
-import Editor from '../Pages/Components/Editor';
-
-export default function NoteEditor({ note }) {
-    const [title, setTitle] = useState(note?.title || '');
-    const [content, setContent] = useState(note?.content || '');
-    const [summary, setSummary] = useState('');
+export default function NoteEditor({ note: initialNote }) {
+    const [note, setNote] = useState(
+        initialNote || { title: "Untitled", content: "" }
+    );
+    const [title, setTitle] = useState(note.title || "Untitled");
+    const [content, setContent] = useState(note.content || "");
+    const [summary, setSummary] = useState("");
     const [tags, setTags] = useState([]);
     const [isStreaming, setIsStreaming] = useState(false);
 
+    // Sync local state when initialNote changes
     useEffect(() => {
-        console.log('Note prop:', note); // Debug note prop
-        if (!note?.id) {
-            Inertia.post('/notes', { title: 'Untitled', content: '' }, {
-                onSuccess: (response) => {
-                    console.log('New note created:', response.props.note);
-                    // Note: Parent component must update note prop
-                },
-                onError: (errors) => {
-                    console.error('Failed to create note:', errors);
-                    toast.error('Failed to create note.');
-                },
-            });
-            return;
-        }
+        setTitle(initialNote?.title || "Untitled");
+        setContent(initialNote?.content || "");
+        setNote(initialNote || { title: "Untitled", content: "" });
+    }, [initialNote]);
+
+    // Auto-save on title or content change
+    useEffect(() => {
+        if (!note.id) return; // Skip if no note ID (new note not yet created)
 
         const timer = setTimeout(() => {
-            const plainContent = htmlToText(content, { wordwrap: false }); // Remove if backend expects HTML
+            const plainContent = htmlToText(content, { wordwrap: false });
             Inertia.put(
                 `/notes/${note.id}`,
-                { title, content: plainContent }, // Use content if HTML
+                { title, content: plainContent },
                 {
                     onError: (errors) => {
-                        console.error('Failed to save note:', errors);
-                        toast.error('Failed to save note.');
+                        console.error("Failed to save note:", errors);
+                        toast.error("Failed to save note.");
                     },
                     onSuccess: () => {
-                        console.log('Note saved successfully');
+                        console.log("Note saved successfully");
+                        toast.success("Note auto-saved"); // Optional: Add toast for auto-save
                     },
                 }
             );
         }, 1000);
 
         return () => clearTimeout(timer);
-    }, [title, content, note?.id]);
+    }, [title, content, note.id]);
+
+    const handleSubmit = () => {
+        const plainContent = htmlToText(content, { wordwrap: false });
+        if (note.id) {
+            // Update existing note
+            Inertia.put(
+                `/notes/${note.id}`,
+                { title, content: plainContent },
+                {
+                    onError: (errors) => {
+                        console.error("Failed to update note:", errors);
+                        toast.error("Failed to update note.");
+                    },
+                    onSuccess: () => {
+                        toast.success("Note updated successfully");
+                    },
+                }
+            );
+        } else {
+            // Create new note
+            Inertia.post(
+                "/notes",
+                { title, content: plainContent },
+                {
+                    onSuccess: (page) => {
+                        const newNote = page.props.note; // Expect note in response
+                        if (newNote) {
+                            setNote(newNote);
+                            setTitle(newNote.title);
+                            setContent(newNote.content);
+                            toast.success("Note created successfully");
+                            // Optionally redirect to the new note's editor page
+                            Inertia.visit(`/notes/${newNote.id}`);
+                        }
+                    },
+                    onError: (errors) => {
+                        console.error("Failed to create note:", errors);
+                        toast.error("Failed to create note.");
+                    },
+                }
+            );
+        }
+    };
 
     const handleSummarize = () => {
-        if (!note?.id) {
-            console.error('No note ID. Creating a new note...');
-            toast.error('No note selected. Creating a new one...');
-            Inertia.post('/notes', { title: 'Untitled', content: '' }, {
-                onSuccess: (response) => {
-                    const newNoteId = response.props.note?.id; // Adjust based on response
-                    if (newNoteId) {
-                        setIsStreaming(true);
-                        setSummary('');
-                        const eventSource = new EventSource(`/notes/${newNoteId}/summarize`);
-                        eventSource.onmessage = (event) => {
-                            try {
-                                const data = JSON.parse(event.data);
-                                setSummary((prev) => prev + (data.content || ''));
-                            } catch (error) {
-                                console.error('Error parsing summary data:', error);
-                            }
-                        };
-                        eventSource.onerror = () => {
-                            console.error('Summarization stream error');
-                            setIsStreaming(false);
-                            eventSource.close();
-                        };
-                        return () => eventSource.close();
-                    }
-                },
-                onError: (errors) => {
-                    console.error('Failed to create note for summarization:', errors);
-                    toast.error('Failed to create note.');
-                },
-            });
+        if (!note.id) {
+            toast.error("Please save the note before summarizing.");
             return;
         }
 
         setIsStreaming(true);
-        setSummary('');
+        setSummary("");
 
         const eventSource = new EventSource(`/notes/${note.id}/summarize`);
+
         eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                setSummary((prev) => prev + (data.content || ''));
+                setSummary((prev) => prev + (data.content || ""));
             } catch (error) {
-                console.error('Error parsing summary data:', error);
+                console.error("Error parsing summary data:", error);
+                toast.error("Failed to parse summary data.");
+                setIsStreaming(false);
+                eventSource.close();
             }
         };
-        eventSource.onerror = () => {
-            console.error('Summarization stream error');
+
+        eventSource.onerror = (error) => {
+            console.error("Summarization stream error:", error);
             setIsStreaming(false);
             eventSource.close();
+
+            // Fetch error details from the server if available
+            fetch(`/notes/${note.id}/summarize`)
+                .then((response) => response.json())
+                .then((data) => {
+                    toast.error(
+                        data.error || "Summarization failed. Please try again."
+                    );
+                })
+                .catch(() => {
+                    toast.error(
+                        "Summarization failed. Check your connection or API key."
+                    );
+                });
         };
 
-        return () => eventSource.close();
+        // Cleanup on component unmount or when summarization is complete
+        return () => {
+            if (eventSource.readyState !== EventSource.CLOSED) {
+                eventSource.close();
+            }
+        };
     };
 
     const generateTags = async () => {
         try {
-            const plainContent = htmlToText(content, { wordwrap: false }); // Remove if backend expects HTML
-            const response = await fetch('/tags.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `content=${encodeURIComponent(plainContent)}`, // Use content if HTML
+            const plainContent = htmlToText(content, { wordwrap: false });
+            const response = await fetch("/tags.php", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: `content=${encodeURIComponent(plainContent)}`,
             });
 
             if (!response.ok) {
@@ -119,9 +157,10 @@ export default function NoteEditor({ note }) {
 
             const data = await response.json();
             setTags(data.tags || []);
+            toast.success("Tags generated successfully");
         } catch (error) {
-            console.error('Failed to generate tags:', error);
-            toast.error('Failed to generate tags.');
+            console.error("Failed to generate tags:", error);
+            toast.error("Failed to generate tags.");
         }
     };
 
@@ -141,11 +180,17 @@ export default function NoteEditor({ note }) {
             />
             <div className="mt-4 flex gap-2">
                 <button
+                    onClick={handleSubmit}
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition"
+                >
+                    {note.id ? "Update Note" : "Save Note"}
+                </button>
+                <button
                     onClick={handleSummarize}
-                    disabled={isStreaming}
+                    disabled={isStreaming || !note.id}
                     className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition"
                 >
-                    {isStreaming ? 'Summarizing...' : 'Summarize Note'}
+                    {isStreaming ? "Summarizing..." : "Summarize Note"}
                 </button>
                 <button
                     onClick={generateTags}
